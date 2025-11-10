@@ -5,11 +5,12 @@ import os
 import requests
 
 class FunctionManager:
-    def __init__(self, function_name, image_name, container_port, host_port_start=8000, idle_timeout=300, min_idle_containers=1):
+    def __init__(self, function_name, image_name, container_port, host_storage_path, host_port_start=8000, idle_timeout=300, min_idle_containers=1):
         self.function_name = function_name
         self.image_name = image_name
         self.container_port = container_port
         self.host_port_start = host_port_start
+        self.host_storage_path = host_storage_path
         self.idle_timeout = idle_timeout
         self.min_idle_containers = min_idle_containers
         self.docker_client = docker.from_env()
@@ -58,12 +59,26 @@ class FunctionManager:
         # 使用 Docker 随机映射宿主端口，避免端口冲突
         container_name = f"{self.function_name}-{os.urandom(4).hex()}"
         try:
-            print(f"Creating new container '{container_name}' for {self.function_name} (image={self.image_name}) ...")
-            container = self.docker_client.containers.run(
+            print(f"Creating new container '{container_name}' ...")
+
+            # --- 准备 docker run 的参数 ---
+            run_kwargs = {
+                "detach": True,
+                "ports": {f"{self.container_port}/tcp": None}, #
+                "name": container_name
+            }
+
+            # --- 仅在 host_storage_path 存在时才添加 volumes ---
+            if self.host_storage_path:
+                print(f"  > Mounting volume: {self.host_storage_path} -> /storage")
+                run_kwargs["volumes"] = {self.host_storage_path: {'bind': '/storage', 'mode': 'rw'}}
+            else:
+                print("  > No host_storage_path provided. Running without volume.")
+            
+            # --- 使用 **kwargs 运行容器 ---
+            container = self.docker_client.containers.run( #
                 self.image_name,
-                detach=True,
-                ports={f"{self.container_port}/tcp": None},  # 让 Docker 自动分配宿主端口
-                name=container_name
+                **run_kwargs
             )
             print(f"Created container id={container.id[:12]}")
         except docker.errors.ImageNotFound:

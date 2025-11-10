@@ -74,7 +74,7 @@ def run():
     # record the execution time
     start = time.time() #记录开始计时。
 
-    runner.run(inp)
+    #runner.run(inp)
     '''
     process_ = Process(target=runner.run, args=[inp])
     process_.start()
@@ -82,14 +82,14 @@ def run():
     process_.terminate()
     '''
 
-    # out = runner.run(inp)
+    out = runner.run(inp)
     end = time.time() #记录结束计时。
     print('duration:', end - start)
     data = {
         "start_time": start,
         "end_time": end,
         "duration": end - start,
-        # "result": out
+        "result": out
     }
 
     proxy.status = 'ok'
