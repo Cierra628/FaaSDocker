@@ -55,6 +55,7 @@ RUN pip install --no-cache-dir \
     pytesseract \
     numpy \
     Pillow \
+    scipy \
     # 您原始 Action 中的遗留依赖
     couchdb
 

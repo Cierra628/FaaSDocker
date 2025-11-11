@@ -308,6 +308,72 @@ def _run_recognizer_workflow(payload):
         print(f"\n[recognizer_workflow] --- 失败! ---")
         print(f"[recognizer_workflow] 工作流执行出错: {e}\n")
 
+# --- 新增：硬编码的 SVD 工作流逻辑 ---
+def _run_svd_workflow(payload):
+    """
+    在后台线程中运行的 SVD 分治工作流。
+    """
+    print("[svd_workflow] SVD 工作流已启动...")
+    try:
+        # --- 1. 获取工作流输入 ---
+        # payload 示例: {"row_num": 2000, "col_num": 100, "slice_num": 2}
+        row_num = payload.get("row_num", 2000)
+        col_num = payload.get("col_num", 100)
+        slice_num = payload.get("slice_num", 2)
+        
+        # --- 2. 调度 SVD Start (分割) ---
+        print("[svd_workflow] 正在调度 SVD_START (分割)...")
+        start_payload = {
+            "row_num": row_num,
+            "col_num": col_num,
+            "slice_num": slice_num
+        }
+        start_result, _ = _dispatch_request("svd_start", start_payload)
+        slice_paths = start_result['slice_paths'] # [ {"slice_paths": ["/storage/...", ...]} ]
+        print(f"[svd_workflow] SVD_START 完成。创建了 {len(slice_paths)} 个切片。")
+
+        # --- 3. 调度 SVD Compute (并行) ---
+        print("[svd_workflow] 正在调度 SVD_COMPUTE (并行)...")
+        
+        def _compute_task(task_input):
+            # task_input 是一个 (index, path) 元组
+            mat_index, slice_path = task_input
+            print(f"[svd_workflow]  > 开始计算: {slice_path}")
+            task_payload = {
+                'slice_path': slice_path,
+                'mat_index': mat_index
+            }
+            # _dispatch_request 返回 (result_payload, container_id)
+            result, _ = _dispatch_request("svd_compute", task_payload)
+            print(f"[svd_workflow]  > 完成计算: {slice_path}")
+            return result # 返回包含 {u_path, s_path, ...} 的 dict
+
+        # 创建一个任务列表，包含索引和路径
+        # e.g., [(0, '/storage/.../slice_0.npy'), (1, '/storage/.../slice_1.npy')]
+        compute_tasks = list(enumerate(slice_paths))
+        
+        compute_results = []
+        with ThreadPoolExecutor(max_workers=len(compute_tasks)) as executor:
+            compute_results = list(executor.map(_compute_task, compute_tasks))
+        
+        print("[svd_workflow] SVD_COMPUTE 完成。")
+        
+        # --- 4. 调度 SVD Merge (合并) ---
+        print("[svd_workflow] 正在调度 SVD_MERGE...")
+        merge_payload = {
+            'results': compute_results
+        }
+        merge_result, _ = _dispatch_request("svd_merge", merge_payload)
+        final_paths = merge_result
+        print("[svd_workflow] SVD_MERGE 完成。")
+
+        print(f"\n[svd_workflow] --- 成功! ---")
+        print(f"[svd_workflow] 最终 SVD 结果已保存至 {final_paths.get('final_u_path')}")
+
+    except Exception as e:
+        print(f"\n[svd_workflow] --- 失败! ---")
+        print(f"[svd_workflow] 工作流执行出错: {e}")
+
 # --- 新增：工作流调度接口 ---
 @app.route('/dispatch_workflow', methods=['POST'])
 def dispatch_workflow():
@@ -351,7 +417,19 @@ def dispatch_workflow():
             "workflow_name": "recognizer",
             "message": "图像审查工作流已在后台启动。请检查控制器日志。"
         }), 202
-    
+    elif workflow_name == "svd":
+        thread = threading.Thread(
+            target=_run_svd_workflow, # <-- 调用新函数
+            args=(payload,)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            "status": "started",
+            "workflow_name": "svd",
+            "message": "SVD 工作流已在后台启动。请检查控制器日志。"
+        }), 202
     else:
         return jsonify({"error": f"未知的 workflow_name: {workflow_name}"}), 404
 
