@@ -1,0 +1,4 @@
+file '/storage/output/video_transcode/transcoded_split_my_video_piece_00.avi'
+file '/storage/output/video_transcode/transcoded_split_my_video_piece_01.avi'
+file '/storage/output/video_transcode/transcoded_split_my_video_piece_02.avi'
+file '/storage/output/video_transcode/transcoded_split_my_video_piece_03.avi'

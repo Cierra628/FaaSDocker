@@ -5,8 +5,9 @@ import json
 
 # --- 1. 全局配置 (不变) ---
 CONTROLLER_URL = 'http://localhost:5000'
-HOST_STORAGE_PATH = '/home/jywang/FaaSDocker/storage'
-HOST_SOURCE_DIR = '/home/jywang/FaaSDocker/sources'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HOST_STORAGE_PATH = os.path.join(BASE_DIR, "storage")
+HOST_SOURCE_DIR = os.path.join(BASE_DIR, "sources")
 IMAGE_NAME = 'workflow-proxy:latest'
 PROXY_CONTAINER_PORT = 5000
 

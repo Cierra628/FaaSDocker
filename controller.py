@@ -12,7 +12,8 @@ import signal
 
 app = Flask(__name__) #
 
-PERF_LOG_DIR = '/home/jywang/FaaSDocker/storage/perf_logs'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PERF_LOG_DIR = os.path.join(BASE_DIR, "storage/perf_logs")
 
 function_managers = {} #
 manager_lock = threading.Lock() #
